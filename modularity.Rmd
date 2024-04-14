@@ -1,0 +1,99 @@
+---
+title: "Modularity"
+output:
+  html_notebook:
+    code_folding: null
+  word_document: default
+  html_document:
+    df_print: paged
+date: "2024-04-01"
+---
+#### Load libraries
+```{r eval=FALSE, warning=FALSE}
+library(R.matlab)
+library(readxl)
+library(igraph)
+library(ggraph)
+```
+
+### <span style="color: blue;">Set up enviorment</span>
+
+#### Clear Environment and Console
+```{r}
+rm(list = ls()) # Clears environment
+cat("\f")       # Clears console
+```
+
+#### Set working directory
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath("/Users/astridrr/Desktop/Courses/Independent_study/Code")) # This sets the working directory to your specified path.
+```
+
+### <span style="color: blue;">Prepare Data</span>
+
+#### Import data
+```{r}
+# Connectivity matrix
+data <- readMat("sub_1.mat") # Import connectivity matrix data for one sample subject.
+str(data) # Display the structure of the data for verification.
+edges <- data$matrix # Extract the matrix to be used for network analysis.
+
+# Node and respective network
+nodes <- read_excel("Schaefer_17Network_400ROIs_detail.xlsx") # Import Schaefer 17 Networ ROI data
+nodes <- nodes[,c("Order","Label","Network_Name")] # Select relevant columns.
+```
+
+#### Process data
+```{r}
+edges[is.nan(edges)] <- 0 # Convert NaNs to 0 to handle missing or undefined correlations.
+edges[edges < 0] <- 0 # Set negative edges to 0, assuming a focus on positive correlations.
+
+# Validate preprocessing steps:
+# summary(edges) # Quick summary to ensure no NaN or negative values remain.
+```
+
+#### Convert to `igraph`
+```{r}
+# Converted the adjacency matrix to an igraph object for network analysis.
+net <- graph_from_adjacency_matrix(edges, mode = "max", weighted = TRUE)
+```
+
+### <span style="color: blue;">Detect communities and calculate modularity</span>
+
+#### Detect communities with Louvain method
+```{r}
+# The Louvain method is used here for community detection based on modularity optimization.
+communities <- cluster_louvain(net) 
+```
+
+#### Calculate modularity
+```{r}
+mod <- modularity(net, communities$membership)
+paste("Modularity (Louvain) = ", mod)
+```
+
+#### Visualize modularity
+```{r}
+plot(communities, net, vertex.size = 5) # Visualize the detected communities within the network.
+plot(subgraph(net, sample(V(net), 50))) # Plot a sub sample
+```
+
+### <span style="color: blue;">Modularity based on Schaefer 17 networks</span>
+
+#### Calculate modularity
+```{r}
+# Extract the network labels for each node
+subnet <- nodes$Label
+
+# Calculate modularity with predefined communities
+modularity_val <- modularity(net, subnet)
+print(paste("Modularity (Schaefer 17 Networks) = ", modularity_val))
+```
+
+#### Visualization of Network Communities
+```{r}
+ggraph(net) + geom_edge_link(aes(alpha=.5)) + geom_node_point(aes(color=factor(subnet))) + theme_graph()
+```
+
+
+
