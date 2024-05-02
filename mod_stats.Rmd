@@ -1,0 +1,155 @@
+---
+title: "Modularity Statistics"
+output:
+  html_notebook:
+    code_folding: null
+  word_document: default
+  html_document:
+    df_print: paged
+date: "2024-04-01"
+---
+#### Load libraries
+```{r eval=FALSE, warning=FALSE}
+library(readxl)
+library(tidyverse)
+library(magrittr)
+```
+
+### <span style="color: blue;">Set up enviorment</span>
+
+#### Clear Environment and Console
+```{r}
+rm(list = ls()) # Clears environment
+cat("\f")       # Clears console
+```
+
+#### Set working directory
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath("/Users/astridrr/Desktop/Courses/Independent_study/Code")) # This sets the working directory to your specified path.
+```
+
+### <span style="color: blue;">Prepare Data</span>
+
+#### Import data
+```{r}
+dat <- read_excel("merge_data.xlsx")
+mod_lv <- read_excel("sub_mod_lv.xlsx")
+```
+
+#### Merge data 
+```{r}
+names(mod_lv) <- c("mod_lv","Matrix_Num") # Changes the variable names to match dat
+
+data <- merge(dat, mod_lv, by = "Matrix_Num")
+```
+
+#### Clean data
+```{r}
+data <- data[data$Dx!=4 & data$Dx!=5,] # Excludes subjects under categories 4 and 5
+```
+
+#### Recode variables
+```{r}
+data$Sex <- car::recode(data$Sex,"'Female'=0;'Male'=1") # Recodes Females and Males as random variables 0 and 1
+data$SMOKSTA <- car::recode(data$SMOKSTA, "'2'=1")
+data$Amyloid <- car::recode(data$Amyloid, "'Negative'=0;'Positive'=1;'Inconclusive'=9;NA=9")
+```
+
+#### Data subset
+```{r}
+odata <-data[data$AgeatMRI>53,] # Extracts subjects ≥54 years old from the data
+adata <-data[data$Amyloid!=9,]
+```
+
+### <span style="color: blue;">Exploratory data analysis</span>
+
+#### Modularity through age
+
+Previous studies have shown that modularity decreases with age.
+https://doi.org/10.1089/brain.2014.0286
+
+
+```{r}
+mdl <- "mod_lv ~ 1 + AgeatMRI"
+lm <- lm(mdl, data)
+lmAov <- lm %>% car::Anova(.,type=2) %T>% print()
+lmSum <- lm %>% summary() %>% {.$coefficients} %>% cbind(confint(lm)[row.names(.),]) %>% print()
+cat("Multiple R-squared:", summary(lm)$r.squared,"\nAdjusted R-squared:", summary(lm)$adj.r.squared, "\n")
+```
+Visualizing the data
+```{r}
+fig <- ggplot(data, aes(x = AgeatMRI, y = mod_lv)) +
+    geom_point(aes(col = factor(Dx), alpha = 0.8)) + theme_bw() + 
+    geom_smooth(method = "lm", se = FALSE, color = "black") +
+    labs(x = "Age", y = "Modularity", colour = "Legend") +  # Set x and y axis labels
+    scale_colour_hue(labels = c("1" = "CN", "2" = "MCI", "3" = "AD"))
+    
+    print(fig)
+```
+
+#### Modularity in diagnosis groups
+
+```{r}
+mdl <- "mod_lv ~ 1 + AgeatMRI + Dx"
+lm <- lm(mdl, data)
+lmAov <- lm %>% car::Anova(.,type=2) %T>% print()
+lmSum <- lm %>% summary() %>% {.$coefficients} %>% cbind(confint(lm)[row.names(.),]) %>% print()
+cat("Multiple R-squared:", summary(lm)$r.squared,"\nAdjusted R-squared:", summary(lm)$adj.r.squared, "\n")
+```
+Visualizing the data
+```{r}
+fig <- ggplot(data, aes(x = factor(Dx), y = mod_lv, fill= factor(Dx))) +
+    geom_violin() + theme_bw() + 
+    stat_summary(fun.data = "mean_cl_boot", geom = "pointrange") + # Add dot representing mean with sd
+    labs(x = "Diagnosis", y = "Modularity") +  # Set x and y axis labels
+    scale_fill_discrete(guide = FALSE) +  # Remove legend
+    scale_x_discrete(labels = c("1"= "HC", "2" = "MCI", "3" = "AD"))  # Set custom tick marks
+
+print(fig)
+```
+
+#### Modularity in smoking status
+
+```{r}
+mdl <- "mod_lv ~ 1 + AgeatMRI + SMOKSTA"
+lm <- lm(mdl, data)
+lmAov <- lm %>% car::Anova(.,type=2) %T>% print()
+lmSum <- lm %>% summary() %>% {.$coefficients} %>% cbind(confint(lm)[row.names(.),]) %>% print()
+cat("Multiple R-squared:", summary(lm)$r.squared,"\nAdjusted R-squared:", summary(lm)$adj.r.squared, "\n")
+```
+Visualizing the data
+```{r}
+fig <- ggplot(data, aes(x = factor(SMOKSTA), y = mod_lv, fill= factor(SMOKSTA))) +
+    geom_violin() + theme_bw() + 
+    stat_summary(fun.data = "mean_cl_boot", geom = "pointrange") + # Add dot representing mean with sd
+    labs(x = "Smoking status", y = "Modularity") +  # Set x and y axis labels
+    scale_fill_discrete(guide = FALSE) +  # Remove legend
+    scale_x_discrete(labels = c("0"= "Non-Smoker", "1" = "Smoker"))  # Set custom tick marks
+
+print(fig)
+```
+
+#### Modularity in amyloid status 
+
+```{r}
+mdl <- "mod_lv ~ 1 + AgeatMRI + Amyloid"
+lm <- lm(mdl, adata)
+lmAov <- lm %>% car::Anova(.,type=2) %T>% print()
+lmSum <- lm %>% summary() %>% {.$coefficients} %>% cbind(confint(lm)[row.names(.),]) %>% print()
+cat("Multiple R-squared:", summary(lm)$r.squared,"\nAdjusted R-squared:", summary(lm)$adj.r.squared, "\n")
+```
+Visualizing the data
+```{r}
+fig <- ggplot(adata, aes(x = factor(Amyloid), y = mod_lv, fill= factor(Amyloid))) +
+    geom_violin() + theme_bw() + 
+    stat_summary(fun.data = "mean_cl_boot", geom = "pointrange") + # Add dot representing mean with sd
+    labs(x = "Amyloid status", y = "Modularity") +  # Set x and y axis labels
+    scale_fill_discrete(guide = FALSE) +  # Remove legend
+    scale_x_discrete(labels = c("0"= "Negative", "1" = "Positive"))  # Set custom tick marks
+
+print(fig)
+```
+
+
+
+
