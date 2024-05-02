@@ -1,5 +1,5 @@
 ---
-title: "Modularity"
+title: "Modularity Calculation"
 output:
   html_notebook:
     code_folding: null
@@ -14,6 +14,7 @@ library(R.matlab)
 library(readxl)
 library(igraph)
 library(ggraph)
+library(writexl)
 ```
 
 ### <span style="color: blue;">Set up enviorment</span>
@@ -26,7 +27,7 @@ cat("\f")       # Clears console
 
 #### Set working directory
 ```{r setup}
-knitr::opts_knit$set(root.dir = normalizePath("/Users/astridrr/Desktop/Wiers_Lab/Projects/ABC_FC/Astrid_code")) # This sets the working directory to your specified path.
+knitr::opts_knit$set(root.dir = normalizePath("/Users/astridrr/Desktop/Courses/Independent_study/Code")) # This sets the working directory to your specified path.
 ```
 
 ### <span style="color: blue;">Prepare Data</span>
@@ -82,23 +83,23 @@ for (n in 1:num_subs){
 ### <span style="color: blue;">Generating random networks</span>
 Generate a random network preserving the degree distribution of the original networks.
 ```{r}
-rand_graphs <- list()
-
-for (n in 1:num_subs){
-    sub <- subs_graphs[[n]]
-    deg <- degree(sub)
-    rand_graphs_sub <- list()
-    for (m in 1:100) {
+#rand_graphs <- list()
+#
+#for (n in 1:num_subs){
+#    sub <- subs_graphs[[n]]
+#    deg <- degree(sub)
+#    rand_graphs_sub <- list()
+#    for (m in 1:100) {
         # Generate a random graph with the same degree sequence
-        rand <- sample_degseq(deg, method = "simple.no.multiple")
+#        rand <- sample_degseq(deg, method = "simple.no.multiple")
         # Add the random graph to the list
-        rand_graphs_sub[[m]] <- rand
-    }
+#        rand_graphs_sub[[m]] <- rand
+#    }
     # Calculate the mean of the random graphs for this subject
-    mean_rand_graph <- Reduce(`+`, rand_graphs_sub) / length(rand_graphs_sub)
+#    mean_rand_graph <- Reduce(`+`, rand_graphs_sub) / length(rand_graphs_sub)
     # Add the mean random graph to the overall list
-    rand_graphs[[n]] <- mean_rand_graph
-}
+#    rand_graphs[[n]] <- mean_rand_graph
+#}
 ```
 
 ### <span style="color: blue;">Detect communities and calculate modularity</span>
@@ -116,14 +117,21 @@ for (n in 1:num_subs){
 
 #### Calculate modularity
 ```{r}
-sub_mod <- list()
+mod_lv <- list()
 
 for (n in 1:num_subs){
     sub_g <- subs_graphs[[n]]
     sub_c <- sub_communities[[n]]
     sub <- modularity(sub_g, sub_c$membership)
-    sub_mod[[n]] <- sub
+    mod_lv[[n]] <- sub
 }
+```
+
+#### Save modularity values
+```{r}
+sub_mod_lv <- data.frame(mod_lv = unlist(mod_lv))
+sub_mod_lv$ID <- 1:252
+write_xlsx(sub_mod_lv, "/Users/astridrr/Desktop/Courses/Independent_study/Code/sub_mod_lv.xlsx")
 ```
 
 #### Visualize modularity
@@ -139,15 +147,25 @@ for (n in 1:num_subs){
 # Extract the network labels for each node
 subnet <- nodes$Label
 
+mod_sch <- list()
+
+for (n in 1:num_subs){
+    sub_g <- subs_graphs[[n]]
+    sub <- modularity(sub_g, membership = subnet, weights = E(sub)$weight)
+    mod_sch[[n]] <- sub
+}
 # Calculate modularity with predefined communities
-modularity_val <- modularity(net, subnet)
-print(paste("Modularity (Schaefer 17 Networks) = ", modularity_val))
+# modularity_val <- modularity(net, membership = subnet)
+# print(paste("Modularity (Schaefer 17 Networks) = ", modularity_val))
 ```
 
 #### Visualization of Network Communities
 ```{r}
 #ggraph(net) + geom_edge_link(aes(alpha=.5)) + geom_node_point(aes(color=factor(subnet))) + theme_graph()
 ```
+
+
+
 
 
 
